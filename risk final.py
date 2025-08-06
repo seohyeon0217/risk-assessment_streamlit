@@ -1,68 +1,77 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import time
+import pandas as pd # pandas 추가
 
-st.set_page_config(layout="wide", page_title="AI 스마트 배터리 JSA - 진정한 보완")
-st.title("💡 AI 기반 스마트 배터리 JSA 위험성 평가 (선행 vs 후행 - 보완의 원리) 💡")
+st.set_page_config(layout="wide", page_title="AI 스마트 배터리 JSA - 공정 특화")
+st.title("💡 AI 기반 스마트 배터리 JSA 위험성 평가 (공정 특화 + 선행/후행 통합) 💡")
 st.markdown("---")
-st.write("안뇽냥뇽냥이! 👋 이 시스템은 **'현재의 안전 관리 노력'을 평가하는 선행지표**와 **'과거의 실제 사고 결과 및 관리 부실'을 분석하는 후행지표**를 각각 독립적으로 평가합니다. 두 지표의 본질적인 차이를 이해하고, **아리셀 배터리 공장 사고의 '교훈'을 후행지표에 반영하여 선행지표를 어떻게 보완하고 강화해야 하는지** 그 '피드백 루프'의 원리를 명확하게 제시합니다. ✨")
+st.write("안뇽냥뇽냥이! 👋 이 시스템은 **배터리 제조 4대 핵심 공정별로 특화된 위험요인**을 바탕으로 **현재의 안전 관리 노력(선행지표)**을 평가하고, **과거 사고/관리 부실(후행지표)**을 분석하여 위험도를 평가합니다. 후행지표를 통해 드러난 '사고의 교훈'을 선행지표 강화에 적용하는 **'피드백 루프'**를 구현하여, 가장 현실적이고 지능적인 안전 관리 시스템의 가능성을 제시합니다. ✨")
 st.markdown("---")
 
-# --- 배터리 제조 공정 단계 정의 ---
-process_steps_info = {
-    "양극 혼합 및 코팅": "배터리 재료(화학물질)를 혼합하고 전극에 코팅하는 단계. 화학물질 취급, 분진, 슬러리, 화재/폭발 위험이 있습니다.",
-    "프레스 및 슬리팅": "코팅된 전극을 압착하여 밀도를 높이고(프레스) 폭에 맞춰 자르는(슬리팅) 단계. 기계적 끼임, 절단, 그리고 불량 제품(배터리)으로 인한 발열, 화재/폭발 위험이 내재되어 있습니다. 특히 이 공정은 **아리셀 배터리 공장 화재·폭발 사고가 발생한 핵심 '사고 발생 위치'**입니다.",
-    "셀 조립 및 전해액 주입": "양극, 음극, 분리막을 조립하고(권취, 스태킹) 배터리 핵심 물질인 전해액을 주입하는 단계. 화학물질 유출, 중독, 질식, 화재 위험이 높습니다.",
-    "밀봉 및 활성화": "전해액이 주입된 셀을 외부와 완벽히 차단하고(밀봉) 초기 충방전을 통해 셀의 성능을 깨우는(활성화) 단계. 밀봉 불량, 폭발(불량 셀), 화재, 과열 위험이 내재되어 있습니다.",
-    "충방전 테스트": "완성된 셀, 모듈, 팩의 성능을 검사하기 위해 반복적인 충방전을 수행하는 단계. 과열, 발화, 폭발, 전기적 위험이 높습니다.",
-    "모듈/팩 조립 및 최종 검사": "개별 셀들을 모듈 또는 팩 형태로 연결하고(배선, 용접) 최종 성능을 검사 후 포장하는 단계. 기계적 손상, 감전, 단락, 화재 위험이 내재되어 있습니다."
+# --- 배터리 제조 4대 핵심 공정 정의 및 정보 ---
+battery_processes_details = {
+    "전극 공정": {
+        "desc": "양극/음극 활물질을 바인더와 섞어 슬러리를 만들고, 코팅, 건조, 프레스, 슬리팅하는 공정.",
+        "risk_factors": {
+            "화학물질(슬러리, 유기용제) 누출/흡입 위험 관리": {"type": "화학물질", "freq_map": {1:5,2:4,3:3,4:2,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+            "분진 발생 및 관리 수준": {"type": "환경", "freq_map": {1:5,2:4,3:3,4:2,5:1}, "sev_map": {1:4,2:3,3:2,4:1,5:1}},
+            "고온 건조 설비 이상 및 관리": {"type": "설비", "freq_map": {1:4,2:3,3:2,4:1,5:1}, "sev_map": {1:4,2:3,3:2,4:1,5:1}},
+            "프레스/슬리터 등 기계적 끼임/절단 위험 관리": {"type": "기계", "freq_map": {1:5,2:4,3:3,4:2,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+            "방폭 및 환기 설비 관리": {"type": "설비/화재", "freq_map": {1:5,2:4,3:3,4:2,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+        }
+    },
+    "조립 공정": {
+        "desc": "전극을 감거나 쌓아 젤리롤/스택을 만들고, 케이스에 넣고 전해액 주입 후 밀봉하는 공정.",
+        "risk_factors": {
+            "전해액 주입 중 유출/흡입 위험 관리": {"type": "화학물질", "freq_map": {1:5,2:4,3:3,4:2,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+            "전해액/밀봉 관련 화재/폭발 위험 관리": {"type": "화재/화학", "freq_map": {1:5,2:4,3:3,4:2,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+            "권취/스태킹 장비 기계적 끼임 위험 관리": {"type": "기계", "freq_map": {1:4,2:3,3:2,4:1,5:1}, "sev_map": {1:4,2:3,3:2,4:1,5:1}},
+            "비활성 가스(아르곤 등) 질식 위험 관리": {"type": "화학물질/환경", "freq_map": {1:4,2:3,3:2,4:1,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+            "용접/봉합 스파크 및 열적 위험 관리": {"type": "열", "freq_map": {1:3,2:2,3:1,4:1,5:1}, "sev_map": {1:3,2:2,3:1,4:1,5:1}},
+        }
+    },
+    "활성화 공정": {
+        "desc": "조립된 배터리에 초기 충방전을 통해 활물질을 활성화하고 품질 검사.",
+        "risk_factors": {
+            "불량 셀 열폭주/발화 위험 관리": {"type": "열/화재", "freq_map": {1:5,2:4,3:3,4:2,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}}, # 아리셀 사고와 직결
+            "셀 내부 가스 발생 및 폭발 위험 관리": {"type": "폭발", "freq_map": {1:4,2:3,3:2,4:1,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+            "초기 전해액 누출 및 흡입 위험 관리": {"type": "화학물질", "freq_map": {1:3,2:2,3:1,4:1,5:1}, "sev_map": {1:4,2:3,3:2,4:1,5:1}},
+            "충방전 설비의 전기적 위험 관리": {"type": "전기", "freq_map": {1:3,2:2,3:1,4:1,5:1}, "sev_map": {1:4,2:3,3:2,4:1,5:1}},
+            "과열 모니터링 및 자동 진화 시스템 유무": {"type": "안전시스템", "freq_map": {1:5,2:4,3:3,4:2,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+        }
+    },
+    "팩 공정": {
+        "desc": "여러 개의 셀을 모듈/팩으로 조립하고 배선, 보호회로 연결, 최종 검사 및 포장.",
+        "risk_factors": {
+            "고전압 배선 및 조립 중 감전 위험 관리": {"type": "전기", "freq_map": {1:5,2:4,3:3,4:2,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+            "셀/모듈 운반/적재 중 낙하/충격 위험 관리": {"type": "물리", "freq_map": {1:4,2:3,3:2,4:1,5:1}, "sev_map": {1:4,2:3,3:2,4:1,5:1}},
+            "조립/용접 스파크 및 화재 위험 관리": {"type": "열/화재", "freq_map": {1:3,2:2,3:1,4:1,5:1}, "sev_map": {1:3,2:2,3:1,4:1,5:1}},
+            "불량 팩 발화/폭발 위험 관리 (최종 검사)": {"type": "열/폭발", "freq_map": {1:4,2:3,3:2,4:1,5:1}, "sev_map": {1:5,2:4,3:3,4:2,5:1}},
+            "포장/운반 자동화 설비 기계적 위험 관리": {"type": "기계", "freq_map": {1:3,2:2,3:1,4:1,5:1}, "sev_map": {1:3,2:2,3:1,4:1,5:1}},
+        }
+    }
 }
-process_options = list(process_steps_info.keys())
+process_options = list(battery_processes_details.keys())
 selected_process_step = st.selectbox("🔋 배터리 제조 공정 단계 선택", process_options)
+st.markdown(f"*{battery_processes_details[selected_process_step]['desc']}*")
 
 st.markdown("---")
 
-# --- 1. 선행지표 입력 ---
-st.subheader("1️⃣ 선행지표 입력 (현재 작업환경 및 관리 시스템 건전성 평가 - 예방 노력)")
-st.markdown("현재 시점에서 작업장 환경, 설비 관리 상태, 작업자의 안전 행동, 그리고 전반적인 안전 관리 시스템의 **잠재적 위험 요인과 예방 노력**을 평가합니다.")
+# --- 1. 선행지표 입력 (공정별 위험요인 세부 입력) ---
+st.subheader("1️⃣ 선행지표 입력 (공정별 위험요인 관리 수준 평가)")
+st.markdown("선택하신 공정의 주요 위험요인별 현재 안전 관리 수준을 입력해주세요. (1:불량 ~ 5:우수)")
 
-col1, col2 = st.columns(2)
+leading_factors_input = {}
+current_process_risk_factors = battery_processes_details[selected_process_step]["risk_factors"]
 
-with col1:
-    st.write("### 👷 작업 환경")
-    env_cleanliness = st.slider("작업장 청결도 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_env_c")
-    env_ventilation = st.slider("작업장 환기 상태 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_env_v")
-    env_orderliness = st.slider("작업장 정리정돈 상태 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_env_o")
-    env_chemical_exposure = st.slider("환경 화학물질 노출 농도 (1:낮음 ~ 5:높음)", 1, 5, 2, key="s_env_ce")
-    env_dust_level = st.slider("환경 분진 농도 (1:낮음 ~ 5:높음)", 1, 5, 2, key="s_env_d")
+# 공정별 특화 위험요인 슬라이더로 입력
+for i, (factor_name, factor_details) in enumerate(current_process_risk_factors.items()):
+    leading_factors_input[factor_name] = st.slider(
+        f"{factor_name} ({factor_details['type']})", 1, 5, 3, key=f"risk_{i}"
+    )
 
-    st.write("### 👨‍🏭 작업자 안전 행동")
-    worker_skill = st.selectbox("작업자 숙련도", ["미숙련", "보통", "숙련"], key="s_w_s")
-    worker_safety_compliance = st.slider("작업자 안전수칙 준수도 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_w_sc")
-    worker_ppe_compliance = st.slider("작업자 PPE 착용 준수도 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_w_ppe")
-    worker_fatigue = st.slider("작업자 피로도 (1:낮음 ~ 5:높음)", 1, 5, 2, key="s_w_f")
-
-with col2:
-    st.write("### 🛠️ 설비 건전성 및 관리")
-    equip_condition = st.slider("설비 종합 상태 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_e_c")
-    equip_inspection_cycle = st.slider("설비 점검 주기 준수도 (1:미흡 ~ 5:우수)", 1, 5, 4, key="s_e_ic")
-    equip_breakdown_history = st.select_slider("설비 최근 6개월 고장 이력", options=["없음", "1~2회", "3회 이상"], key="s_e_bh")
-    equip_maintenance_quality = st.slider("설비 유지보수 품질 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_e_mq")
-
-    st.write("### 🛡️ 안전 관리 시스템 (선행적 요소)")
-    safety_inspection_status = st.selectbox("안전점검 체계 (현재 운영)", ["정기점검 완벽", "샘플점검 위주", "점검 미흡/미실시"], key="s_sm_is")
-    fire_facility_adequacy = st.selectbox("소방시설 법적 기준 준수", ["기준 초과 설치", "법적 기준 준수", "설치 미흡/대상 아님"], key="s_sm_ffa")
-    special_extinguisher_presence = st.radio("특수 소화기(배터리 전용) 보유 여부", ["보유", "미보유"], key="s_sm_sep")
-    chemical_mgmt_msds = st.slider("화학물질 MSDS 관리 및 교육 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_c_msds")
-    chemical_mgmt_storage = st.slider("화학물질 저장/취급 관리 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_c_st")
-    jsa_performance = st.slider("JSA(작업안전분석) 수행 완성도 (1:낮음 ~ 5:높음)", 1, 5, 3, key="s_j_p")
-    sops_compliance = st.slider("작업표준서(SOP) 준수도 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_s_c")
-    worker_safety_education_freq = st.slider("정기 안전 교육 빈도 (월)", 0, 4, 1, key="s_w_sef")
-    ptw_compliance = st.slider("작업허가제(PTW) 준수도 (1:불량 ~ 5:우수)", 1, 5, 3, key="s_p_c")
-
-st.markdown("---")
-
-# --- 2. 후행지표 입력 ---
+# --- 2. 후행지표 입력 (과거 사고 및 관리 부실 중심) ---
 st.subheader("2️⃣ 후행지표 입력 (과거 사고 결과 및 관리 시스템의 '실질적 부실' 평가)")
 st.markdown("과거에 실제로 발생했던 사고/사건, 법규 위반, 관리 시스템의 누적된 부실 등을 통해 **'시스템의 진정한 취약성'**을 평가합니다.")
 st.markdown("💡 **만약 '아리셀 공장'의 사고 전 상태를 시뮬레이션한다면, 아래 항목들을 해당 사고가 발생할만한 상태로 설정해보세요! (특히 '예', '있음', '확인됨', '부적절/불법 논란', '미흡' 등을 선택)**")
@@ -71,7 +80,6 @@ col_lag1, col_lag2 = st.columns(2)
 
 with col_lag1:
     st.write("### 💥 과거 사고 결과 (인명/재산/운영 손실)")
-    # 사고 존재 유무 및 인명 피해
     has_major_incident = st.radio("과거 대형/중대 재해(사망, 다수 부상 등)가 있었습니까?", ["없음", "있음"], key="l_pmao") 
     past_fatalities_count = 0
     past_injuries_count = 0
@@ -92,63 +100,36 @@ with col_lag2:
 
 st.markdown("---")
 
-# --- 선행지표 '위험도 등급'에 따른 설명 ---
-def get_leading_grade_description(grade):
-    if grade == "매우 낮음": return "최소 위험 / 모니터링 유지"
-    elif grade == "낮음": return "낮은 위험 / 점진적 개선 권고"
-    elif grade == "보통": return "주의 필요 / 계획된 개선 조치 필요"
-    elif grade == "높음": return "즉시 조치 필요 / 작업 통제 검토"
-    else: return "위험 수용 불가 / 즉시 작업 중단"
-
-# --- 후행지표 '위험 상태'에 따른 설명 ---
-def get_lagging_status_description(status):
-    if status == "클린 레코드": return "사고 이력 없음 / 시스템 양호"
-    elif status == "주목할 문제 없음": return "사소한 문제 존재 / 지속적 관찰"
-    elif status == "경고 필요 (Warning Required)": return "잠재적 사고 유발 요인 / 시스템 취약"
-    elif status == "주요 시스템 부실 (Major System Failure)": return "심각 사고 발생 가능성 높음 / 시스템 결함"
-    elif status == "심각한 결함 이력 (Critical Failure History)": return "대규모 인명피해 및 시스템 붕괴 / 총체적 부실"
-    return "알 수 없음"
+# --- 위험도 수준 정의 ---
+# 공정별 총 위험도 점수 범위
+# 빈도(1-5) * 강도(1-5) = 최대 25점/요인. 요인별 갯수에 따라 총점 다름.
+# 여기서는 5개 요인 * 25점 = 최대 125점으로 가정하고 등급을 나눔.
+def get_risk_level(total_risk_score):
+    if total_risk_score <= 20: return "매우 낮음" # Very Low
+    elif total_risk_score <= 40: return "낮음"    # Low
+    elif total_risk_score <= 60: return "보통"    # Medium
+    elif total_risk_score <= 80: return "높음"    # High
+    else: return "매우 높음" # Very High
 
 # --- 3. 선행지표 평가 함수 (Current Potential Risk) ---
 def evaluate_leading_risk_score():
-    score = 0
-    # 작업 환경 (값이 낮을수록 위험)
-    score += (6 - env_cleanliness) * 2
-    score += (6 - env_ventilation) * 2
-    score += (6 - env_orderliness) * 2
-    score += env_chemical_exposure * 3 # 높을수록 위험
-    score += env_dust_level * 3 # 높을수록 위험
-
-    # 작업자 안전 행동
-    if worker_skill == "미숙련": score += 5
-    elif worker_skill == "보통": score += 2
-    score += (6 - worker_safety_compliance) * 4 # 낮을수록 위험
-    score += (6 - worker_ppe_compliance) * 4 # 낮을수록 위험
-    score += (6 - worker_fatigue) * 2 # 피로도 높을수록 위험
-    score += (5 - worker_safety_education_freq) * 2 # 교육 빈도 낮을수록 위험
+    total_score = 0
+    # 각 위험요인별 빈도, 강도 점수를 현재 관리 수준(1~5)에 따라 매핑하여 합산
+    # 관리 수준이 낮을수록 (1점) 위험 빈도/강도가 높아짐
+    current_process_risk_factors = battery_processes_details[selected_process_step]["risk_factors"]
     
-    # 설비 건전성 및 관리
-    score += (6 - equip_condition) * 4 # 낮을수록 위험
-    score += (6 - equip_inspection_cycle) * 3 # 낮을수록 위험
-    if equip_breakdown_history == "3회 이상": score += 5
-    elif equip_breakdown_history == "1~2회": score += 2
-    score += (6 - equip_maintenance_quality) * 3 # 낮을수록 위험
+    # 선행지표 요소 (점수 높을수록 위험)
+    for factor_name, factor_details in current_process_risk_factors.items():
+        input_value = leading_factors_input[factor_name] # 사용자가 슬라이더로 입력한 관리 수준
+        
+        freq = factor_details["freq_map"].get(input_value, 1) # 관리 수준에 따른 빈도
+        sev = factor_details["sev_map"].get(input_value, 1)   # 관리 수준에 따른 강도
+        
+        total_score += (freq * sev)
+    
+    return total_score
 
-    # 안전 관리 시스템 (선행적 요소)
-    if safety_inspection_status == "점검 미흡/미실시": score += 5
-    elif safety_inspection_status == "샘플점검 위주": score += 3 # 아리셀 사례
-    if fire_facility_adequacy == "설치 미흡/대상 아님": score += 4 # 아리셀 스프링클러 사례
-    elif fire_facility_adequacy == "법적 기준 준수": score += 1
-    if special_extinguisher_presence == "미보유": score += 5 # 아리셀 특수소화기 사례
-    score += (6 - chemical_mgmt_msds) * 3 # 낮을수록 위험
-    score += (6 - chemical_mgmt_storage) * 4 # 낮을수록 위험
-    score += (6 - jsa_performance) * 3 # JSA 미흡시 위험
-    score += (6 - sops_compliance) * 2 # SOP 준수 미흡시 위험
-    score += (6 - ptw_compliance) * 3 # PTW 미준수시 위험
-
-    return round(score, 2)
-
-# --- 4. 후행지표 '위험 상태' 판별 및 내부 점수 계산 함수 ---
+# --- 후행지표 '위험 상태' 판별 및 내부 점수 계산 함수 ---
 def get_lagging_status_and_score(fatalities, injuries, has_major_incident_bool, fine_history_level, over_storage, hidden_reports, training_adequacy, audit_compliance, govt_intervention):
     score = 0
     # 1. 인명 피해 (가장 강력한 요소)
@@ -179,7 +160,7 @@ def get_lagging_status_and_score(fatalities, injuries, has_major_incident_bool, 
     if govt_intervention == "이행 미흡": score += 50
 
     # 최종 상태 판별
-    if score >= 250: # 대규모 인명피해 또는 복합적이고 치명적인 부실
+    if score >= 250: # 인명피해 대규모 + 기타 부실
         status = "심각한 결함 이력 (Critical Failure History)"
     elif score >= 150: # 인명피해 또는 다수 심각 부실
         status = "주요 시스템 부실 (Major System Failure)"
@@ -190,44 +171,40 @@ def get_lagging_status_and_score(fatalities, injuries, has_major_incident_bool, 
 
     return status, score
 
-# --- 평가 수행 ---
+# --- 5. 평가 수행 ---
 with st.spinner('위험성 평가를 분석 중입니다... 🧐'):
     time.sleep(1.5)
-    leading_score_raw = evaluate_leading_risk_score()
-    lagging_status, lagging_score_raw = get_lagging_status_and_score(
+    leading_score_raw = evaluate_leading_risk_score() # 선행지표 총 점수
+    lagging_status, lagging_score_raw = get_lagging_status_and_score( # 후행지표 상태 및 점수
         past_fatalities_count, past_injuries_count, has_major_incident,
         past_fine_history_level, past_hazard_over_storage, past_hidden_accident_reports,
         past_safety_training_adequacy, past_safety_audit_compliance, past_government_intervention
     )
 
-    leading_grade = leading_score_to_grade(leading_score_raw)
-    leading_grade_desc = get_leading_grade_description(leading_grade) # 선행지표 등급별 설명 추가
-
-# --- 5. 결과 출력 ---
+    leading_grade = get_risk_level(leading_score_raw) # 선행지표 등급
+    
+# --- 6. 결과 출력 ---
 st.subheader("✅ 위험성 평가 결과")
 st.markdown("---")
 
 col_res1, col_res2 = st.columns(2)
 with col_res1:
-    st.success("### 🚀 선행지표 위험도 등급 (예방 노력의 현황)")
-    st.write(f"현재 관리 상태 기반 위험도 등급: **{leading_grade}**")
-    st.markdown(f"_(조치 필요성: {leading_grade_desc})_")
-    st.markdown(f"_(내부 점수: {leading_score_raw}점)_")
+    st.success("### 🚀 선행지표 위험도 등급 (현재 관리 상태의 위험 수준)")
+    st.write(f"**{selected_process_step} 공정의 현재 위험도:** **{leading_grade}** (총점: {leading_score_raw}점)")
     st.markdown("""
-    - **개념**: 현재 시점의 안전 관리 노력과 시스템의 건전성을 반영한 위험도. 잠재적인 사고 가능성을 예측합니다.
+    - **의미**: 현재 시점의 안전 관리 노력과 시스템의 건전성을 반영한 위험도. 잠재적인 사고 가능성을 예측합니다.
     - **활용**: 예방 활동 계획 수립 및 현재 관리 시스템 개선 방향 설정에 활용됩니다.
     """)
 with col_res2:
-    st.warning("### 🕰️ 후행지표 위험 상태 (과거 시스템의 실질적 부실)")
-    st.write(f"과거 사고/부실 반영 위험 상태: **{lagging_status}**")
-    st.markdown(f"_(내부 점수: {lagging_score_raw}점)_")
+    st.warning("### 🕰️ 후행지표 위험 상태 (과거 사고 이력 및 관리 부실 수준)")
+    st.write(f"**시스템의 과거 위험 상태:** **{lagging_status}** (내부 점수: {lagging_score_raw}점)")
     st.markdown("""
-    - **의미**: 과거의 실제 사고 이력, 법규 위반, 관리 시스템의 구조적 부실을 반영한 위험도. '숨겨진 위험'을 드러냅니다.
+    - **의미**: 과거의 실제 사고 결과, 법규 위반, 관리 시스템의 구조적 부실을 반영한 위험도. '숨겨진 위험'을 드러냅니다.
     - **활용**: 근본적인 문제점 파악 및 시스템적 개선, 과거의 교훈 학습에 활용됩니다.
     """)
 st.markdown("---")
 
-# --- 6. 선행 vs. 후행 지표 비교 분석 ---
+# --- 7. 선행 vs. 후행 지표 비교 분석 ---
 st.subheader("🔍 선행 vs. 후행 지표 비교 분석: 아리셀 사고의 심층 교훈")
 st.markdown("선행지표와 후행지표는 **본질적으로 다른 지표**이지만, 서로를 보완하며 **진정한 위험을 드러내고 미래의 안전을 설계하는 데 필수적**입니다. 후행지표(과거 데이터 및 관리 부실)를 통해 드러난 위험이 선행지표(현재의 관리 노력)를 어떻게 보완해야 하는지 비교합니다.")
 
@@ -235,12 +212,11 @@ col_comp_chart, col_comp_text = st.columns([0.6, 0.4])
 
 with col_comp_chart:
     fig, ax = plt.subplots(figsize=(7, 4))
-    # 등급별로 색상 조정 (선행지표 등급에 따라)
+    # 등급별/상태별 색상 조정
     bar_colors_leading = {'매우 낮음': 'lightgreen', '낮음': 'skyblue', '보통': 'lightyellow', '높음': 'salmon', '매우 높음': 'red'}
-    bar_colors_lagging = {'클린 레코드': 'darkgreen', '주목할 문제 없음': 'forestgreen', '경고 필요 (Warning Required)': 'orange', '주요 시스템 부실 (Major System Failure)': 'darkorange', '심각한 결함 이력 (Critical Failure History)': 'darkred', '주요 인명 피해': 'darkred'}
+    bar_colors_lagging = {'주목할 문제 없음': 'forestgreen', '경고 필요 (Warning Required)': 'orange', '주요 시스템 부실 (Major System Failure)': 'darkorange', '심각한 결함 이력 (Critical Failure History)': 'darkred', '주요 인명 피해': 'darkred'}
     
-    # 선행지표 등급의 색상과 후행지표 상태의 색상을 각각 적용
-    bars = ax.bar(["선행지표", "후행지표"], [leading_score_raw, lagging_score_raw], 
+    bars = ax.bar(["선행지표 위험도", "후행지표 위험 상태"], [leading_score_raw, lagging_score_raw], 
                    color=[bar_colors_leading.get(leading_grade, 'gray'), bar_colors_lagging.get(lagging_status, 'gray')])
     
     ax.set_ylim(0, max(leading_score_raw, lagging_score_raw) + 40) # y축 여유 공간 확보
@@ -269,7 +245,7 @@ with col_comp_chart:
 with col_comp_text:
     # 선행 vs 후행 등급 비교 해석
     if lagging_status == "심각한 결함 이력 (Critical Failure History)":
-        st.error(f"**❗ 경고: 후행지표 상태 '{lagging_status}'는 '{leading_grade}' 등급의 선행지표를 무색하게 합니다.**")
+        st.error(f"**❗ 경고: 후행지표 상태 '{lagging_status}'는 선행지표 '{leading_grade}' 등급의 현재 노력을 무색하게 합니다.**")
         st.markdown(f"""
         ### 아리셀 사고의 총체적 부실, 단계별 심층 분석
         **과거의 치명적인 문제들이 실제 사고로 이어졌거나, 사고를 일으킬 만한 시스템적 부실이 누적되어 있었다는 것을 의미합니다. 선행지표로 가려졌던 허점이 후행지표를 통해 드러났습니다.**
@@ -317,7 +293,7 @@ with col_comp_text:
         """)
         st.markdown("---")
 
-# --- 7. 후행지표 기반 선행지표 보완 루틴 ---
+# --- 8. 후행지표 기반 선행지표 보완 루틴 ---
 st.subheader("🔁 후행지표 기반 선행지표 보완 루틴: 사고의 교훈을 미래 안전으로")
 st.markdown("아리셀 사고와 같은 중대 재해의 **'과거 데이터(후행지표)'를 분석**하여, **미래의 사고를 막을 수 있는 '선행지표'를 어떻게 강화**할 수 있는지 보여주는 루틴입니다.")
 
